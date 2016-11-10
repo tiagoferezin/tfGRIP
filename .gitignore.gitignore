@@ -1,0 +1,16 @@
+#JavaEE
+/bin
+/test-output
+/config/
+/dist/
+/target/
+#/.settings
+#/.settings/
+#/.settings/*
+*.log
+logs.*
+logs
+.git-old
+.gitl-old-1
+.git-old2
+
