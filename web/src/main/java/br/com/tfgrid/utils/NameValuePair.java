@@ -15,37 +15,37 @@ public class NameValuePair implements Serializable {
 	 */
 	private static final long serialVersionUID = 1L;
 
-	private String nome;
-	private Object valor;
+	private String name;
+	private Object value;
 
 	public NameValuePair() {
 		// TODO Auto-generated constructor stub
 	}
 
 	/**
-	 * @param nome
-	 * @param valor
+	 * @param name
+	 * @param value
 	 */
-	public NameValuePair(String nome, Object valor) {
+	public NameValuePair(String name, Object value) {
 		super();
-		this.nome = nome;
-		this.valor = valor;
+		this.name = name;
+		this.value = value;
 	}
 
-	public String getNome() {
-		return nome;
+	public String getName() {
+		return name;
 	}
 
-	public void setNome(String nome) {
-		this.nome = nome;
+	public void setName(String name) {
+		this.name = name;
 	}
 
-	public Object getValor() {
-		return valor;
+	public Object getValue() {
+		return value;
 	}
 
-	public void setValor(Object valor) {
-		this.valor = valor;
+	public void setValue(Object value) {
+		this.value = value;
 	}
 
 }

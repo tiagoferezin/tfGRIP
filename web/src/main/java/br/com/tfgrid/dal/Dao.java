@@ -13,7 +13,11 @@ import javax.persistence.EntityManager;
 import javax.persistence.Query;
 import javax.validation.ConstraintViolation;
 import javax.validation.ConstraintViolationException;
+import javax.validation.Validation;
 import javax.validation.Validator;
+import javax.validation.ValidatorFactory;
+
+import org.apache.log4j.Logger;
 
 import br.com.tfgrid.model.ancestral.AEntity;
 import br.com.tfgrid.utils.NameValuePair;
@@ -24,40 +28,49 @@ import br.com.tfgrid.utils.NameValuePair;
  */
 public class Dao {
 
+	final static Logger logger = Logger.getLogger(Dao.class);
+
 	protected EntityManager entityManager;
 	protected AEntity entity;
 	protected Validator validator;
 	protected String userName;
 	protected DaoFactory daoFactory;
 
-	public Dao(AEntity entity, EntityManager entityManager) {
-		// TODO Auto-generated constructor stub
+	Dao(AEntity entity, String userName, EntityManager entityManager) {
+		daoFactory = new DaoFactory();
+
 		setEntity(entity);
 		setEntityManager(entityManager);
+
+		if ((userName == null) || (userName.isEmpty())) {
+			this.userName = "usuario@anonimo.com";
+		} else {
+			this.userName = userName;
+		}
 	}
 
-	public EntityManager getEntityManager() {
-		return entityManager;
-	}
-
-	public void setEntityManager(EntityManager entityManager) {
-		this.entityManager = entityManager;
-	}
-
-	public AEntity getEntity() {
+	AEntity getEntity() {
 		return entity;
 	}
 
-	public void setEntity(AEntity entity) {
-		this.entity = entity;
+	void setEntity(AEntity object) {
+		this.entity = object;
 	}
 
-	public Validator getValidator() {
-		return validator;
+	EntityManager getEntityManager() {
+		return entityManager;
 	}
 
-	public void setValidator(Validator validator) {
-		this.validator = validator;
+	void setEntityManager(EntityManager entityManager) {
+		this.entityManager = entityManager;
+	}
+
+	String getUserName() {
+		return userName;
+	}
+
+	void setUserName(String userName) {
+		this.userName = userName;
 	}
 
 	Class<AEntity> getClassT() throws Exception {
@@ -97,60 +110,210 @@ public class Dao {
 		}
 	}
 
-	public void create() throws Exception, ConstraintViolationException {
-		entity.setDataCriacao(Calendar.getInstance());
-		boolean fecharTransacao = false;
+	Validator getValidator() {
+		if (this.validator == null) {
+			ValidatorFactory validatorFactory = Validation.buildDefaultValidatorFactory();
+			validator = validatorFactory.getValidator();
+		}
 
+		return validator;
+	}
+
+	void create() throws Exception, ConstraintViolationException {
+
+		entity.setDataCriacao(Calendar.getInstance());
+
+		boolean closeTransaction = false;
 		try {
 
 			validate();
+
 			beforePersistence();
 			if (!entityManager.getTransaction().isActive()) {
+				logger.debug("\n*** Starting transaction \n");
 				entityManager.getTransaction().begin();
-				fecharTransacao = true;
+				closeTransaction = true;
 			}
 
 			entityManager.persist(this.entity);
 
 			if (entityManager.getTransaction().isActive()) {
 				afterPersistence();
-				if (fecharTransacao) {
+				if (closeTransaction) {
+					logger.debug("\n*** Commiting transaction \n");
 					entityManager.getTransaction().commit();
 				}
 			}
 		} catch (ConstraintViolationException e) {
-			// TODO: handle exception
 			if (entityManager.getTransaction().isActive()) {
-				if (fecharTransacao) {
+				if (closeTransaction) {
+					logger.debug("\n*** Rollback transaction\n");
 					entityManager.getTransaction().rollback();
-
 				}
 			}
 
 			e.printStackTrace();
+
 			throw e;
 
 		} catch (Exception e) {
+
 			if (entityManager.getTransaction().isActive()) {
-				if (fecharTransacao) {
+				if (closeTransaction) {
+					logger.debug("\n*** Rollback transaction\n");
 					entityManager.getTransaction().rollback();
 				}
 			}
+
 			e.printStackTrace();
+
 			throw e;
 
+		} finally {
+			// if (closeTransaction) {
+			// logger.debug("\n*** Closing EM\n");
+			// entityManager.close();
+			// }
 		}
+	}
 
+	void update() throws Exception, ConstraintViolationException {
+		initializeEntityManager();
+
+		boolean closeTransaction = false;
+
+		try {
+			validate();
+			// T encontrada = (T) manager.find(entity.getClass(),
+			// entity.getId());
+
+			beforePersistence();
+			if (!entityManager.getTransaction().isActive()) {
+				logger.debug("\n*** Starting transaction \n");
+				entityManager.getTransaction().begin();
+				closeTransaction = true;
+
+			}
+
+			entityManager.merge(this.entity);
+			if (entityManager.getTransaction().isActive()) {
+				afterPersistence();
+				if (closeTransaction) {
+					logger.debug("\n*** Commiting transaction \n");
+					entityManager.getTransaction().commit();
+				}
+			}
+		} catch (ConstraintViolationException e) {
+			if (entityManager.getTransaction().isActive()) {
+
+				if (closeTransaction) {
+					logger.debug("\n*** Rollback transaction\n");
+					entityManager.getTransaction().rollback();
+				}
+
+			}
+
+			e.printStackTrace();
+			throw e;
+		} catch (Exception e) {
+			e.printStackTrace();
+
+			if (entityManager.getTransaction().isActive()) {
+				if (closeTransaction) {
+					logger.debug("\n*** Rollback transaction\n");
+					entityManager.getTransaction().rollback();
+				}
+
+			}
+			throw e;
+		} finally {
+			// if (closeTransaction) {
+			// logger.debug("\n*** Closing EM\n");
+			// if ((entityManager != null) && (entityManager.isOpen())) {
+			// entityManager.close();
+			// }
+			// }
+		}
 	}
 
 	private void initializeEntityManager() throws Exception {
 		if ((entityManager == null) || (!entityManager.isOpen())) {
 			throw new Exception(
-					"A entityManager de acesso a dados da " + entity.getClass() + " está fechado ou é nulo.");
+					"O entityManager do acesso a dados da " + entity.getClass() + " está fechado ou é nulo.");
 		}
 	}
 
-	public List<AEntity> read(AEntity entity, EntityManager entityManager, String where,
+	void delete() throws Exception {
+
+		initializeEntityManager();
+
+		boolean closeTransaction = false;
+		try {
+
+			beforePersistence();
+			// T encontrada = (T) manager.find(entity.getClass(),
+			// entity.getId());
+			if (!entityManager.getTransaction().isActive()) {
+				logger.debug("\n*** Starting transaction \n");
+				entityManager.getTransaction().begin();
+				closeTransaction = true;
+
+			}
+			if (entity instanceof AEntity) {
+				entity.setDataDesativacao(Calendar.getInstance());
+				entityManager.merge(this.entity);
+			} else {
+				entityManager.remove(entityManager.getReference(entity.getClass(), entity.getId()));
+			}
+
+			if (entityManager.getTransaction().isActive()) {
+				afterPersistence();
+				if (closeTransaction) {
+					logger.debug("\n*** Commiting transaction \n");
+					entityManager.getTransaction().commit();
+				}
+
+				entity.setId(0L);
+			}
+		} catch (Exception e) {
+
+			if (entityManager.getTransaction().isActive()) {
+				if (closeTransaction) {
+					logger.debug("\n*** Rollback transaction\n");
+					entityManager.getTransaction().rollback();
+				}
+			}
+			throw e;
+
+		} finally {
+			// if (closeTransaction) {
+			// logger.debug("\n*** Closing EM\n");
+			// entityManager.close();
+			// }
+		}
+
+	}
+
+	Long count(AEntity entity, String userName, EntityManager entityManager) throws Exception {
+		String hQl = "select count(*) from " + entity.getClass().getSimpleName() + " t";
+
+		return readAtomic(entity, userName, entityManager, hQl);
+	}
+
+	Long readAtomic(AEntity entity, String userName, EntityManager entityManager, String hQl) throws Exception {
+		Long result = 0L;
+
+		initializeEntityManager();
+
+		Query query = entityManager.createQuery(hQl);
+
+		result = (Long) query.getSingleResult();
+
+		return result;
+
+	}
+
+	List<AEntity> read(AEntity entity, String userName, EntityManager entityManager, String where,
 			List<NameValuePair> whereParameters, Integer initialRecord, Integer amountRecord,
 			List<NameValuePair> orderBy, Boolean registrosAtivos) throws Exception {
 
@@ -165,7 +328,7 @@ public class Dao {
 		boolean closeTransaction = false;
 		try {
 			if (!entityManager.getTransaction().isActive()) {
-
+				logger.debug("\n*** Starting transaction \n");
 				entityManager.getTransaction().begin();
 				closeTransaction = true;
 			}
@@ -198,10 +361,10 @@ public class Dao {
 						order += ", ";
 					}
 
-					order += orderColumn.getNome();
+					order += orderColumn.getName();
 
-					if (orderColumn.getValor() != null) {
-						order += " " + orderColumn.getValor();
+					if (orderColumn.getValue() != null) {
+						order += " " + orderColumn.getValue();
 					}
 
 				}
@@ -212,14 +375,17 @@ public class Dao {
 
 			hQl += order;
 			System.out.println(hQl);
+			logger.debug("HQL: ");
+			logger.debug(hQl);
 
 			Query query = entityManager.createQuery(hQl);
 
 			if ((where != null) && (!where.trim().isEmpty())) {
 				if (whereParameters != null) {
 					for (NameValuePair par : whereParameters) {
+						logger.debug("Set attribute: " + par.getName());
 
-						query.setParameter(par.getNome(), par.getValor());
+						query.setParameter(par.getName(), par.getValue());
 					}
 				}
 			}
@@ -232,11 +398,13 @@ public class Dao {
 				query.setMaxResults(amountRecord);
 			}
 
+			logger.debug("Query: " + query.toString());
+
 			list = query.getResultList();
 
 			if (entityManager.getTransaction().isActive()) {
 				if (closeTransaction) {
-
+					logger.debug("\n*** Commiting transaction \n");
 					entityManager.getTransaction().commit();
 				}
 			}
@@ -244,7 +412,7 @@ public class Dao {
 		} catch (Exception e) {
 			if (entityManager.getTransaction().isActive()) {
 				if (closeTransaction) {
-
+					logger.debug("\n*** Rollback transaction\n");
 					entityManager.getTransaction().rollback();
 				}
 			}
@@ -261,114 +429,91 @@ public class Dao {
 
 	}
 
-	public void update() throws Exception, ConstraintViolationException {
-		initializeEntityManager();
+	Integer executeUpdate(List<NameValuePair> setAttributes, String where, List<NameValuePair> whereParameters)
+			throws Exception {
 
-		boolean closeTransaction = false;
+		Integer result = 0;
 
-		try {
-			validate();
-			// T encontrada = (T) manager.find(entity.getClass(),
-			// entity.getId());
+		if (((setAttributes != null) && (setAttributes.size() > 0)) && ((where != null) && (!where.trim().isEmpty()))) {
 
-			beforePersistence();
-			if (!entityManager.getTransaction().isActive()) {
+			initializeEntityManager();
 
-				entityManager.getTransaction().begin();
-				closeTransaction = true;
-
-			}
-
-			entityManager.merge(this.entity);
-			if (entityManager.getTransaction().isActive()) {
-				afterPersistence();
-				if (closeTransaction) {
-
-					entityManager.getTransaction().commit();
-				}
-			}
-		} catch (ConstraintViolationException e) {
-			if (entityManager.getTransaction().isActive()) {
-
-				if (closeTransaction) {
-
-					entityManager.getTransaction().rollback();
+			boolean closeTransaction = false;
+			try {
+				if (!entityManager.getTransaction().isActive()) {
+					logger.debug("\n*** Starting transaction \n");
+					entityManager.getTransaction().begin();
+					closeTransaction = true;
 				}
 
-			}
+				String hQl = "update " + entity.getClass().getSimpleName() + " as t " + " set ";
 
-			e.printStackTrace();
-			throw e;
-		} catch (Exception e) {
-			e.printStackTrace();
+				String attributes = "";
 
-			if (entityManager.getTransaction().isActive()) {
-				if (closeTransaction) {
+				for (NameValuePair nameValuePair : setAttributes) {
 
-					entityManager.getTransaction().rollback();
+					if (!attributes.isEmpty()) {
+						attributes += ", ";
+					}
+
+					attributes += nameValuePair.getName() + " = :" + nameValuePair.getName();
 				}
 
-			}
-			throw e;
-		} finally {
-			// if (closeTransaction) {
-			// logger.debug("\n*** Closing EM\n");
-			// if ((entityManager != null) && (entityManager.isOpen())) {
-			// entityManager.close();
-			// }
-			// }
-		}
-	}
+				hQl += attributes;
+				hQl += " where " + where;
+				System.out.println(hQl);
+				logger.debug("HQL: ");
+				logger.debug(hQl);
 
-	public void delete() throws Exception {
+				Query query = entityManager.createQuery(hQl);
 
-		initializeEntityManager();
+				for (NameValuePair nameValuePair : setAttributes) {
+					logger.debug("Set attribute: " + nameValuePair.getName());
 
-		boolean closeTransaction = false;
-		try {
-
-			beforePersistence();
-			// T encontrada = (T) manager.find(entity.getClass(),
-			// entity.getId());
-			if (!entityManager.getTransaction().isActive()) {
-
-				entityManager.getTransaction().begin();
-				closeTransaction = true;
-
-			}
-			if (entity instanceof AEntity) {
-				entity.setDataDesativacao(Calendar.getInstance());
-				entityManager.merge(this.entity);
-			} else {
-				entityManager.remove(entityManager.getReference(entity.getClass(), entity.getId()));
-			}
-
-			if (entityManager.getTransaction().isActive()) {
-				afterPersistence();
-				if (closeTransaction) {
-
-					entityManager.getTransaction().commit();
+					query.setParameter(nameValuePair.getName(), nameValuePair.getValue());
 				}
 
-				entity.setId(0L);
-			}
-		} catch (Exception e) {
+				if (whereParameters != null) {
+					for (NameValuePair par : whereParameters) {
+						logger.debug("Set parameter: " + par.getName());
 
-			if (entityManager.getTransaction().isActive()) {
-				if (closeTransaction) {
-
-					entityManager.getTransaction().rollback();
+						query.setParameter(par.getName(), par.getValue());
+					}
 				}
-			}
-			throw e;
 
-		} finally {
-			// if (closeTransaction) {
-			// logger.debug("\n*** Closing EM\n");
-			// entityManager.close();
-			// }
+				logger.debug("executeUpdate: " + query.toString());
+
+				result = query.executeUpdate();
+
+				if (entityManager.getTransaction().isActive()) {
+					if (closeTransaction) {
+						logger.debug("\n*** Commiting transaction \n");
+						entityManager.getTransaction().commit();
+					}
+				}
+
+			} catch (Exception e) {
+				e.printStackTrace();
+
+				if (entityManager.getTransaction().isActive()) {
+					if (closeTransaction) {
+						logger.debug("\n*** Rollback transaction\n");
+						entityManager.getTransaction().rollback();
+					}
+				}
+
+				throw e;
+
+			} finally {
+				// if (closeTransaction) {
+				// logger.debug("\n*** Closing EM\n");
+				// entityManager.close();
+				// }
+			}
+
 		}
 
+		return result;
 	}
 
 }

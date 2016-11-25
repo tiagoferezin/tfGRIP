@@ -23,11 +23,12 @@ import br.com.tfgrid.utils.NameValuePair;
  */
 public class DaoFactory {
 
-	public void create(AEntity entity, EntityManager entityManager) throws ConstraintViolationException, Exception {
-
-		Dao result = new Dao(entity, entityManager);
+	//////////////////////////////////////////////////////////////////////////
+	// CRUD - BEGIN CREATE
+	public void create(AEntity entity, String userName, EntityManager entityManager)
+			throws ConstraintViolationException, Exception {
+		Dao result = new Dao(entity, userName, entityManager);
 		result.create();
-
 	}
 
 	public void create(Usuario entity, String userName, EntityManager entityManager)
@@ -57,16 +58,39 @@ public class DaoFactory {
 		this.create(entity, userName, entityManager);
 	}
 
-	public AEntity read(AEntity entity, String userName, EntityManager entityManager, Long id) throws Exception {
+	// CRUD - END CREATE
+	//////////////////////////////////////////////////////////////////////////
+	//////////////////////////////////////////////////////////////////////////
+	//////////////////////////////////////////////////////////////////////////
+	//////////////////////////////////////////////////////////////////////////
+	// CRUD - BEGIN READ
+	public Long count(AEntity entity, String userName, EntityManager entityManager) throws Exception {
+		String hQl = "select count(*) from " + entity.getClass().getSimpleName() + " t";
+
+		Dao dao = new Dao(entity, userName, entityManager);
+
+		return dao.readAtomic(entity, userName, entityManager, hQl);
+	}
+
+	public Long readAtomic(AEntity entity, String userName, EntityManager entityManager, String hQl) throws Exception {
+		Long result = 0L;
+		Dao dao = new Dao(entity, userName, entityManager);
+
+		return dao.readAtomic(entity, userName, entityManager, hQl);
+
+	}
+
+	public AEntity read(AEntity entity, String userName, EntityManager entityManager, String alternativeId,
+			String attributeAlternativeName) throws Exception {
 		List<AEntity> list = new ArrayList<AEntity>();
 
-		String where = "(t.id = :id)";
+		String where = "(t." + attributeAlternativeName + " = :" + attributeAlternativeName + ")";
 
 		List<NameValuePair> whereParameters = new ArrayList<NameValuePair>();
 
-		whereParameters.add(new NameValuePair("id", id));
+		whereParameters.add(new NameValuePair(attributeAlternativeName, alternativeId));
 
-		list = read(entity, entityManager, where, whereParameters, 0, 0, "", "");
+		list = read(entity, userName, entityManager, where, whereParameters, 0, 0, "", "");
 
 		AEntity result = entity.getClass().newInstance();
 
@@ -78,11 +102,92 @@ public class DaoFactory {
 
 	}
 
-	public List<AEntity> read(AEntity entity, EntityManager entityManager, String where,
+	public AEntity read(AEntity entity, String userName, EntityManager entityManager, Long alternativeId,
+			String attributeAlternativeName) throws Exception {
+		List<AEntity> list = new ArrayList<AEntity>();
+
+		String where = "(t." + attributeAlternativeName + " = :" + attributeAlternativeName + ")";
+
+		List<NameValuePair> whereParameters = new ArrayList<NameValuePair>();
+
+		whereParameters.add(new NameValuePair(attributeAlternativeName, alternativeId));
+
+		list = read(entity, userName, entityManager, where, whereParameters, 0, 0, "", "");
+
+		AEntity result = entity.getClass().newInstance();
+
+		if ((list != null) && (list.size() > 0)) {
+			result = list.get(0);
+		}
+
+		return result;
+
+	}
+
+	public AEntity read(AEntity entity, String userName, EntityManager entityManager, Long id) throws Exception {
+		List<AEntity> list = new ArrayList<AEntity>();
+
+		String where = "(t.id = :id)";
+
+		List<NameValuePair> whereParameters = new ArrayList<NameValuePair>();
+
+		whereParameters.add(new NameValuePair("id", id));
+
+		list = read(entity, userName, entityManager, where, whereParameters, 0, 0, "", "");
+
+		AEntity result = entity.getClass().newInstance();
+
+		if ((list != null) && (list.size() > 0)) {
+			result = list.get(0);
+		}
+
+		return result;
+
+	}
+
+	public List<AEntity> readAllActives(AEntity entity, String userName, EntityManager entityManager) throws Exception {
+		List<AEntity> list = new ArrayList<AEntity>();
+
+		list = read(entity, userName, entityManager, 0, 0, null, null);
+
+		return list;
+
+	}
+
+	public List<AEntity> readAll(AEntity entity, String userName, EntityManager entityManager) throws Exception {
+		List<AEntity> list = new ArrayList<AEntity>();
+		List<NameValuePair> whereParameters = new ArrayList<NameValuePair>();
+		whereParameters.clear();
+		list = read(entity, userName, entityManager, null, whereParameters, false);
+		return list;
+	}
+
+	public List<AEntity> read(AEntity entity, String userName, EntityManager entityManager, Integer initialRecord,
+			Integer amountRecord, String orderColumn, String orderDirection) throws Exception {
+		List<AEntity> list = new ArrayList<AEntity>();
+
+		list = read(entity, userName, entityManager, null, null, initialRecord, amountRecord, orderColumn,
+				orderDirection);
+
+		return list;
+
+	}
+
+	public List<AEntity> read(AEntity entity, String userName, EntityManager entityManager, String where)
+			throws Exception {
+		List<AEntity> list = new ArrayList<AEntity>();
+
+		list = read(entity, userName, entityManager, where, null, 0, 0, null, null, null);
+
+		return list;
+
+	}
+
+	public List<AEntity> read(AEntity entity, String userName, EntityManager entityManager, String where,
 			List<NameValuePair> whereParameters) throws Exception {
 		List<AEntity> list = new ArrayList<AEntity>();
 
-		list = read(entity, entityManager, where, whereParameters, 0, 0, null, null, null);
+		list = read(entity, userName, entityManager, where, whereParameters, 0, 0, null, null, null);
 
 		return list;
 
@@ -92,32 +197,32 @@ public class DaoFactory {
 			List<NameValuePair> whereParameters, List<NameValuePair> orderBy) throws Exception {
 		List<AEntity> list = new ArrayList<AEntity>();
 
-		list = read(entity, entityManager, where, whereParameters, 0, 0, orderBy, true);
+		list = read(entity, userName, entityManager, where, whereParameters, 0, 0, orderBy, true);
 
 		return list;
 
 	}
 
-	public List<AEntity> read(AEntity entity, EntityManager entityManager, String where,
+	public List<AEntity> read(AEntity entity, String userName, EntityManager entityManager, String where,
 			List<NameValuePair> whereParameters, Boolean registrosAtivos) throws Exception {
 		List<AEntity> list = new ArrayList<AEntity>();
 
-		list = read(entity, entityManager, where, whereParameters, 0, 0, null, null, registrosAtivos);
+		list = read(entity, userName, entityManager, where, whereParameters, 0, 0, null, null, registrosAtivos);
 
 		return list;
 
 	}
 
-	public List<AEntity> read(AEntity entity, EntityManager entityManager, String where,
+	public List<AEntity> read(AEntity entity, String userName, EntityManager entityManager, String where,
 			List<NameValuePair> whereParameters, Integer initialRecord, Integer amountRecord, String orderColumn,
 			String orderDirection) throws Exception {
 		List<AEntity> list = new ArrayList<AEntity>();
-		list = read(entity, entityManager, where, whereParameters, initialRecord, amountRecord, orderColumn,
+		list = read(entity, userName, entityManager, where, whereParameters, initialRecord, amountRecord, orderColumn,
 				orderDirection, true);
 		return list;
 	}
 
-	public List<AEntity> read(AEntity entity, EntityManager entityManager, String where,
+	public List<AEntity> read(AEntity entity, String userName, EntityManager entityManager, String where,
 			List<NameValuePair> whereParameters, Integer initialRecord, Integer amountRecord, String orderColumn,
 			String orderDirection, Boolean registrosAtivos) throws Exception {
 
@@ -133,35 +238,68 @@ public class DaoFactory {
 			orderBy.add(new NameValuePair(orderColumn, orderDirection));
 		}
 
-		list = read(entity, entityManager, where, whereParameters, initialRecord, amountRecord, orderBy, true);
+		list = read(entity, userName, entityManager, where, whereParameters, initialRecord, amountRecord, orderBy,
+				true);
 
 		return list;
 
 	}
 
 	// Metodo responsável por acessar efetivamente a Dao [FB]
-	public List<AEntity> read(AEntity entity, EntityManager entityManager, String where,
+	public List<AEntity> read(AEntity entity, String userName, EntityManager entityManager, String where,
 			List<NameValuePair> whereParameters, Integer initialRecord, Integer amountRecord,
 			List<NameValuePair> orderBy, Boolean registrosAtivos) throws Exception {
 
-		Dao dao = new Dao(entity, entityManager);
-		List<AEntity> list = dao.read(entity, entityManager, where, whereParameters, initialRecord, amountRecord,
-				orderBy, true);
+		Dao dao = new Dao(entity, userName, entityManager);
+		List<AEntity> list = dao.read(entity, userName, entityManager, where, whereParameters, initialRecord,
+				amountRecord, orderBy, true);
 
 		return list;
 
 	}
 
+	// CRUD - END READ
+	//////////////////////////////////////////////////////////////////////////
+	//////////////////////////////////////////////////////////////////////////
+	//////////////////////////////////////////////////////////////////////////
+	//////////////////////////////////////////////////////////////////////////
+	// CRUD - BEGIN UPDATE
 	public void update(AEntity entity, String userName, EntityManager entityManager)
 			throws ConstraintViolationException, Exception {
-		Dao result = new Dao(entity, entityManager);
+		Dao result = new Dao(entity, userName, entityManager);
 		result.update();
 	}
 
+	/**
+	 * @param texto
+	 * @param userName
+	 * @param entityManager
+	 * @param setAttributes
+	 * @param where
+	 * @param whereParameters
+	 * @return
+	 * @throws Exception
+	 */
+	public Integer executeUpdate(AEntity entity, String userName, EntityManager entityManager,
+			List<NameValuePair> setAttributes, String where, List<NameValuePair> whereParameters) throws Exception {
+
+		Dao dao = new Dao(entity, userName, entityManager);
+
+		return dao.executeUpdate(setAttributes, where, whereParameters);
+	}
+
+	// CRUD - END UPDATE
+	//////////////////////////////////////////////////////////////////////////
+	//////////////////////////////////////////////////////////////////////////
+	//////////////////////////////////////////////////////////////////////////
+	//////////////////////////////////////////////////////////////////////////
+	// CRUD - BEGIN DELETE
 	public void delete(AEntity entity, String userName, EntityManager entityManager)
 			throws ConstraintViolationException, Exception {
-		Dao result = new Dao(entity, entityManager);
+		Dao result = new Dao(entity, userName, entityManager);
 		result.delete();
 	}
+	// CRUD - END DELETE
+	//////////////////////////////////////////////////////////////////////////
 
 }
